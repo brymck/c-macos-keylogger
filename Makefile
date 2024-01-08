@@ -1,5 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -g
+CFLAGS = -Wall -Wextra -pedantic -O3
+LDFLAGS =
 FRAMEWORKS = -framework Carbon -framework CoreFoundation -framework CoreGraphics
 TARGET = macos-keylogger
 SRC = $(wildcard *.c)
@@ -8,7 +9,7 @@ OBJ = $(SRC:.c=.o)
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) $(FRAMEWORKS) -o $@ $^
+	$(CC) $(CFLAGS) $(FRAMEWORKS) -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $<

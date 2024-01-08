@@ -6,6 +6,7 @@
 #include <sys/time.h>
 
 struct CGEventContext {
+    FILE *file;
     UCKeyboardLayout *keyboardLayout;
     long long lastMillis;
 };
@@ -32,68 +33,83 @@ const unsigned char PAGE_UP[] = {0xE2, 0x87, 0x9E, 0x00};
 const unsigned char PAGE_DOWN[] = {0xE2, 0x87, 0x9F, 0x00};
 const unsigned char NO_CHAR[] = {0x00};
 
-void printUniCharAsUtf8(UniChar ch) {
-    unsigned char utf8[4] = {0};
-
+size_t copyUniCharToUtf8Buffer(const UniChar ch, unsigned char *dest) {
     if (ch < 0x80) {
-        utf8[0] = (unsigned char)ch;
+        dest[0] = (unsigned char)ch;
+        return 1;
     } else if (ch < 0x800) {
-        utf8[0] = 0xC0 | (ch >> 6);
-        utf8[1] = 0x80 | (ch & 0x3F);
+        dest[0] = 0xC0 | (ch >> 6);
+        dest[1] = 0x80 | (ch & 0x3F);
+        return 2;
     } else {
-        // 3-byte UTF-8 sequence
-        utf8[0] = 0xE0 | (ch >> 12);
-        utf8[1] = 0x80 | ((ch >> 6) & 0x3F);
-        utf8[2] = 0x80 | (ch & 0x3F);
+        dest[0] = 0xE0 | (ch >> 12);
+        dest[1] = 0x80 | ((ch >> 6) & 0x3F);
+        dest[2] = 0x80 | (ch & 0x3F);
+        return 3;
     }
-
-    printf("%s", utf8);
 }
 
-const unsigned char * findSpecialCharacter(int keyCode) {
+size_t copyUtf8CharToUtf8Buffer(const unsigned char *ch, unsigned char *dest) {
+    strcpy((char *)dest, (char *)ch);
+    return strlen((char *)ch);
+}
+
+size_t copySpecialCharToUtf8Buffer(const int keyCode, unsigned char *dest) {
     switch (keyCode) {
         case 36:
-            return RETURN;
+            return copyUtf8CharToUtf8Buffer(RETURN, dest);
         case 48:
-            return TAB;
+            return copyUtf8CharToUtf8Buffer(TAB, dest);
         case 49:
-            return SPACE;
+            return copyUtf8CharToUtf8Buffer(SPACE, dest);
         case 51:
-            return DELETE;
+            return copyUtf8CharToUtf8Buffer(DELETE, dest);
         case 53:
-            return ESCAPE;
+            return copyUtf8CharToUtf8Buffer(ESCAPE, dest);
         case 115:
-            return HOME;
+            return copyUtf8CharToUtf8Buffer(HOME, dest);
         case 116:
-            return PAGE_UP;
+            return copyUtf8CharToUtf8Buffer(PAGE_UP, dest);
         case 117:
-            return FORWARD_DELETE;
+            return copyUtf8CharToUtf8Buffer(FORWARD_DELETE, dest);
         case 119:
-            return END;
+            return copyUtf8CharToUtf8Buffer(END, dest);
         case 121:
-            return PAGE_DOWN;;
+            return copyUtf8CharToUtf8Buffer(PAGE_DOWN, dest);;
         case 123:
-            return LEFT_ARROW;
+            return copyUtf8CharToUtf8Buffer(LEFT_ARROW, dest);
         case 124:
-            return RIGHT_ARROW;
+            return copyUtf8CharToUtf8Buffer(RIGHT_ARROW, dest);
         case 125:
-            return DOWN_ARROW;
+            return copyUtf8CharToUtf8Buffer(DOWN_ARROW, dest);
         case 126:
-            return UP_ARROW;
+            return copyUtf8CharToUtf8Buffer(UP_ARROW, dest);
         default:
-            return NO_CHAR;
+            return 0;
     }
 }
 
+void printBuffer(const unsigned char *buffer, const size_t length) {
+    printf("  %p (len %zu): ", (void *)buffer, length);
+    for (size_t i = 0; i < length; i++) {
+        if (buffer[i] == '\0') {
+            break;
+        }
+        printf("%02x ", buffer[i]);
+    }
+    printf("\n");
+}
 
 void handleButtonEvent(const CGEventType type,
                        const CGEventFlags flags,
                        const CGKeyCode keyCode,
                        UniChar *unicodeString,
-                       struct CGEventContext *userInfo) {
-    if (type != kCGEventKeyDown) {
-        return;
-    }
+                       struct CGEventContext *context) {
+    unsigned char stdoutBuffer[1024] = {0};
+    unsigned char binBuffer[1024] = {0};
+    size_t i = 0;
+    size_t j = 0;
+    int offset = 0;
 
     struct timeval tv;
     int ret;
@@ -104,34 +120,51 @@ void handleButtonEvent(const CGEventType type,
     } else {
         // Print a newline if we've been idle for a while
         long long millis = (long long)tv.tv_sec * 1000LL + tv.tv_usec / 1000;
-        if (millis - userInfo->lastMillis > LINGER_MS) {
-            printf("\n");
+        if (millis - context->lastMillis > LINGER_MS) {
+            stdoutBuffer[i++] = '\n';
+            offset = 1;
         }
-        userInfo->lastMillis = millis;
+        // Memcpy millis to binBuffer
+        memcpy(binBuffer, &millis, sizeof(millis));
+        j += sizeof(millis);
+        memcpy(binBuffer + j, &flags, sizeof(flags));
+        j += sizeof(flags);
+        memcpy(binBuffer + j, &keyCode, sizeof(keyCode));
+        j += sizeof(keyCode);
+        context->lastMillis = millis;
     }
 
     // Print modifier keys
     if ((flags & kCGEventFlagMaskControl) != 0) {
-        printf("%s", CTRL);
+        i += copyUtf8CharToUtf8Buffer(CTRL, stdoutBuffer + i);
     }
     if ((flags & kCGEventFlagMaskAlternate) != 0) {
-        printf("%s", OPT);
+        i += copyUtf8CharToUtf8Buffer(OPT, stdoutBuffer + i);
     }
     if (!isprint(unicodeString[0]) && (flags & kCGEventFlagMaskShift) != 0) {
-        printf("%s", SHIFT);
+        i += copyUtf8CharToUtf8Buffer(SHIFT, stdoutBuffer + i);
     }
     if ((flags & kCGEventFlagMaskCommand) != 0) {
-        printf("%s", CMD);
+        i += copyUtf8CharToUtf8Buffer(CMD, stdoutBuffer + i);
     }
 
     // Check if the keycode has a special Mac-style character
-    const unsigned char *special = findSpecialCharacter(keyCode);
-    if (special == NO_CHAR) {
-        printUniCharAsUtf8(unicodeString[0]);
-    } else {
-        printf("%s", special);
+    size_t specialLength = copySpecialCharToUtf8Buffer(keyCode, stdoutBuffer + i);
+    if (specialLength == 0) {
+        i += copyUniCharToUtf8Buffer(unicodeString[0], stdoutBuffer + i);
+    } else  {
+        i += specialLength;
     }
-    fflush(stdout);
+
+    memcpy(binBuffer + j, stdoutBuffer + offset, (i - offset) * sizeof(unsigned char));
+    j += i - offset;
+    binBuffer[j++] = '\n';
+    fwrite(binBuffer, sizeof(binBuffer[0]), j, context->file);
+    fflush(context->file);
+
+    if (type == kCGEventKeyDown) {
+        printf("%s", stdoutBuffer);
+    }
 }
 
 CGEventRef CGEventCallback(CGEventTapProxy proxy __attribute__((unused)),
@@ -182,12 +215,12 @@ CGEventRef CGEventCallback(CGEventTapProxy proxy __attribute__((unused)),
     return event;
 }
 
-void listen() {
+void listen(FILE *file) {
     // Determine keyboard layout
     TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardLayoutInputSource();
     CFDataRef layoutData = TISGetInputSourceProperty(currentKeyboard, kTISPropertyUnicodeKeyLayoutData);
     UCKeyboardLayout *keyboardLayout = (UCKeyboardLayout *)CFDataGetBytePtr(layoutData);
-    struct CGEventContext userInfo = {keyboardLayout, 0};
+    struct CGEventContext userInfo = {file, keyboardLayout, 0};
 
     CGEventMask eventMask = CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventKeyUp);
 
@@ -213,6 +246,12 @@ void listen() {
 }
 
 int main(void) {
-    listen();
+    FILE *file = fopen("keyboard.bin", "ab");
+    if (file == NULL) {
+        fprintf(stderr, "ERROR: Unable to open file for writing.\n");
+        exit(1);
+    }
+    setbuf(stdout, NULL);
+    listen(file);
     return 0;
 }
