@@ -270,7 +270,13 @@ void listen(FILE *file) {
 }
 
 void print_usage(FILE *stream, const char *program_name) {
-    fprintf(stream, "Usage: %s [-sfh] [file]\n", program_name);
+    fprintf(stream, "Usage: %s [-sfvh] [-o file]\n", program_name);
+    fprintf(stream, "Options:\n");
+    fprintf(stream, "  -s, --stdout         Print to stdout even if writing to a file\n");
+    fprintf(stream, "  -f, --flush          Flush to file after every keypress\n");
+    fprintf(stream, "  -v, --verbose        Print verbose output\n");
+    fprintf(stream, "  -h, --help           Print this help message\n");
+    fprintf(stream, "  -o, --output FILE    Write to file instead of stdout\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -278,16 +284,19 @@ int main(int argc, char *argv[]) {
 
     int opt;
     int flush_flag = 0;
+    char *output_file = NULL;
 
     struct option long_options[] = {
         {"stdout", no_argument, NULL, 0},
         {"flush", no_argument, NULL, 0},
         {"verbose", no_argument, NULL, 0},
+        {"output", required_argument, NULL, 0},
         {"help", no_argument, NULL, 0},
         {NULL, 0, NULL, 0}
     };
 
-    while ((opt = getopt_long(argc, argv, "sfvh", long_options, NULL)) != -1) {
+
+    while ((opt = getopt_long(argc, argv, "sfvo:h", long_options, NULL)) != -1) {
         switch (opt) {
             case 's':
                 stdout_flag = 1;
@@ -298,6 +307,9 @@ int main(int argc, char *argv[]) {
             case 'v':
                 verbose_flag = 1;
                 break;
+            case 'o':
+                output_file = optarg;
+                break;
             case 'h':
                 print_usage(stdout, argv[0]);
                 return EXIT_SUCCESS;
@@ -307,14 +319,13 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    FILE *file = NULL;
-    if (optind < argc) {
-        const char *filename = argv[optind];
-        LOG("Appending to binary file %s\n", filename);
-        file = fopen(filename, "ab");
+    FILE *file;
+    if (output_file != NULL) {
+        LOG("Appending to binary file %s\n", output_file);
+        file = fopen(output_file, "ab");
         files[0] = file;
         if (file == NULL) {
-            fprintf(stderr, "ERROR: Unable to open %s for writing.\n", filename);
+            fprintf(stderr, "ERROR: Unable to open %s for writing.\n", output_file);
             return EXIT_FAILURE;
         }
         if (flush_flag) {
@@ -322,6 +333,7 @@ int main(int argc, char *argv[]) {
             setbuf(file, NULL);
         }
     } else {
+        file = NULL;
         stdout_flag = 1;
     }
 
