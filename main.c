@@ -150,10 +150,6 @@ void handle_button_event(const CGEventType type,
         // Memcpy millis to bin_buffer
         memcpy(bin_buffer, &millis, sizeof(millis));
         j += sizeof(millis);
-        memcpy(bin_buffer + j, &flags, sizeof(flags));
-        j += sizeof(flags);
-        memcpy(bin_buffer + j, &key_code, sizeof(key_code));
-        j += sizeof(key_code);
         context->last_millis = millis;
     }
 
@@ -181,7 +177,6 @@ void handle_button_event(const CGEventType type,
 
     memcpy(bin_buffer + j, stdout_buffer + offset, (i - offset) * sizeof(unsigned char));
     j += i - offset;
-    bin_buffer[j++] = '\n';
     FILE *file = context->file;
     if (file != NULL) {
         if (debug_flag) {
