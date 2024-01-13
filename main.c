@@ -14,6 +14,7 @@
 const size_t MAX_FILES = 1;
 
 int verbose_flag = 0;
+int debug_flag = 0;
 int stdout_flag = 0;
 FILE *files[MAX_FILES] = {NULL};
 
@@ -183,6 +184,12 @@ void handle_button_event(const CGEventType type,
     bin_buffer[j++] = '\n';
     FILE *file = context->file;
     if (file != NULL) {
+        if (debug_flag) {
+            for (size_t k = 0; k < j; k++) {
+                printf("%02x ", bin_buffer[k]);
+            }
+            printf("\n");
+        }
         fwrite(bin_buffer, sizeof(bin_buffer[0]), j, context->file);
     }
 
@@ -275,6 +282,7 @@ void print_usage(FILE *stream, const char *program_name) {
     fprintf(stream, "  -s, --stdout         Print to stdout even if writing to a file\n");
     fprintf(stream, "  -f, --flush          Flush to file after every keypress\n");
     fprintf(stream, "  -v, --verbose        Print verbose output\n");
+    fprintf(stream, "  -d, --debug          Print debug output\n");
     fprintf(stream, "  -h, --help           Print this help message\n");
     fprintf(stream, "  -o, --output FILE    Write to file instead of stdout\n");
 }
@@ -290,13 +298,14 @@ int main(int argc, char *argv[]) {
         {"stdout", no_argument, NULL, 0},
         {"flush", no_argument, NULL, 0},
         {"verbose", no_argument, NULL, 0},
+        {"debug", no_argument, NULL, 0},
         {"output", required_argument, NULL, 0},
         {"help", no_argument, NULL, 0},
         {NULL, 0, NULL, 0}
     };
 
 
-    while ((opt = getopt_long(argc, argv, "sfvo:h", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "sfvdo:h", long_options, NULL)) != -1) {
         switch (opt) {
             case 's':
                 stdout_flag = 1;
@@ -306,6 +315,9 @@ int main(int argc, char *argv[]) {
                 break;
             case 'v':
                 verbose_flag = 1;
+                break;
+            case 'd':
+                debug_flag = 1;
                 break;
             case 'o':
                 output_file = optarg;
