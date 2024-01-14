@@ -177,6 +177,7 @@ void handle_button_event(const CGEventType type,
 
     memcpy(bin_buffer + j, stdout_buffer + offset, (i - offset) * sizeof(unsigned char));
     j += i - offset;
+    bin_buffer[j++] = '\n';
     FILE *file = context->file;
     if (file != NULL) {
         if (debug_flag) {
