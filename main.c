@@ -141,15 +141,24 @@ void handle_button_event(const CGEventType type,
     if (ret == -1) {
         fprintf(stderr, "ERROR: Unable to get time of day.\n");
     } else {
-        // Print a newline if we've been idle for a while
+        // Print a newline to stdout if we've been idle for a while
         long long millis = (long long)tv.tv_sec * 1000LL + tv.tv_usec / 1000;
         if (millis - context->last_millis > LINGER_MS) {
             stdout_buffer[i++] = '\n';
             offset = 1;
         }
-        // Memcpy millis to bin_buffer
-        memcpy(bin_buffer, &millis, sizeof(millis));
-        j += sizeof(millis);
+
+        memcpy(bin_buffer, &tv.tv_sec, sizeof(tv.tv_sec));
+        j += sizeof(tv.tv_sec);
+        memcpy(bin_buffer, &tv.tv_usec, sizeof(tv.tv_usec));
+        j += sizeof(tv.tv_usec);
+        memcpy(bin_buffer + j, &type, sizeof(type));
+        j += sizeof(type);
+        memcpy(bin_buffer + j, &flags, sizeof(flags));
+        j += sizeof(flags);
+        memcpy(bin_buffer + j, &key_code, sizeof(key_code));
+        j += sizeof(key_code);
+
         context->last_millis = millis;
     }
 
