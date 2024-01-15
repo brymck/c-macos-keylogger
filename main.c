@@ -148,9 +148,9 @@ void handle_button_event(const CGEventType type,
             offset = 1;
         }
 
-        memcpy(bin_buffer, &tv.tv_sec, sizeof(tv.tv_sec));
+        memcpy(bin_buffer + j, &tv.tv_sec, sizeof(tv.tv_sec));
         j += sizeof(tv.tv_sec);
-        memcpy(bin_buffer, &tv.tv_usec, sizeof(tv.tv_usec));
+        memcpy(bin_buffer + j, &tv.tv_usec, sizeof(tv.tv_usec));
         j += sizeof(tv.tv_usec);
         memcpy(bin_buffer + j, &type, sizeof(type));
         j += sizeof(type);
